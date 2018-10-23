@@ -1,13 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <memory>
-#include<pthread.h>
-#include "basic_type.h"
+#include <pthread.h>
 #include "quick_logger.h"
 
 
 void * LogProess(void * ptr) {
-	LoggerManage * log_manage_instant = (LoggerManage *)ptr;
+	LoggerManage *log_manage_instant = (LoggerManage *) ptr;
 	while (1) {
 		timeval tv = { 0 };
 		tv.tv_sec = 3;
@@ -24,6 +23,7 @@ void * LogProess(void * ptr) {
 
 void Log_Manage() {
 	LoggerManage log_manage_instant;
+
 	int nMsqId = msgget(LOG_MESSAGE_QUEUE_KEY, IPC_CREAT | 0666);
 	int nRecvLen = 0;
 	ST_MESSAGE sMessage = { 0 };
@@ -45,7 +45,7 @@ void Log_Manage() {
 			//printf("len :%d,sender:%x,type:%d,level:%d,length:%d\n", nRecvLen, pHead->sender,	pHead->type, pHead->level, pHead->length);
 			if (LOG_TYPE_SYNC == pHead->type) {
 				printf("进程号:%d立即同步\n", pHead->sender);
-				log_manage_instant.logs_sync_flag_ = TRUE;
+				log_manage_instant.logs_sync_flag_ = true;
 			}
 			else {
 				//printf("进程号:%d收到日志%s\n", pHead->sender,pData);
@@ -60,11 +60,9 @@ void Log_Manage() {
 
 
 int main() {
-
 	Log_Manage();
-	while (1)
-	{
-		sleep(100);
+	while (1) {
+		sleep(10000);
 	}
 	return 0;
 }

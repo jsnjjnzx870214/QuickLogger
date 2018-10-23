@@ -1,9 +1,6 @@
 #ifndef _QUICK_LOGGER_H_
 #define _QUICK_LOGGER_H_
 
-
-
-#include "basic_type.h"
 #include "log_config.h"
 #include <sys/types.h>
 #include <sys/ipc.h>

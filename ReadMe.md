@@ -4,7 +4,7 @@
 
 # 1. 介绍
 
-[QuickLogger](https://github.com/jsnjjnzx870214/QuickLogger)是一款应用于嵌入式Linux设备（Embedded Linux）中的快速日志管理包，
+[QuickLogger](https://github.com/jsnjjnzx870214/QuickLogger)是一款应用于嵌入式Linux设备（Embedded Linux）中的快速日志管理程序。
 
 ## 1.1 主要特性
 
@@ -91,8 +91,6 @@
 - LogD_C		蓝绿色日志
 - LogD_W		白色日志
 
-
-
 ## 2.4 输出过滤
 
 **目前输出过滤功能考虑用编辑器实现，本软件内暂不实现（好像没有多大的必要性，用编辑器配合正则表达式可以很好的实现日志过滤，且更为灵活）**
@@ -111,8 +109,25 @@ N 10-13 20:56:11.106#895~task1 Hello test_task1  <test_task1.cpp:15>
 
 **请查看示例程序 log_manage.cpp**
 
+您只需开启一个进程，调用一次Log_Manage()后，即可完成日志的管理工作。其他任何进程或线程，直接调用宏（类似LogD），即可
+
 ![运行示意](https://i.imgur.com/yYx1vYU.gif)
 # 3. 使用注意事项
+**使用期请先配置log_config.h文件，说明如下：**
+
+```
+#define MESSAGE_TYPE				300356			//不知道写啥，就写公司股票代码吧 
+#define LOG_MESSAGE_QUEUE_KEY		300356			//日志消息队列KEY
+#define LOG_SWITCH_BYTE				1024 * 256		//日志切换最大字节数  
+#define MAX_NORMAL_ZIP_LOGS_ON_DISK	50				//普通日志压缩包保留数量
+#define MAX_ERROR_ZIP_LOGS_ON_DISK	5				//错误日志压缩包保留数量
+#define MAX_LOG_CACHE_COUNT			50				//普通日志最大缓存数量，超出此值，写入FLASH
+#define MAX_LOG_DIR_SPACE			1024*1024*10	//日志目录最大给定空间，用于发生致命错误时，保护终端存储空间不会被占满
+
+#define LOG_ROOT_PATH		"/mnt/user/LOG/"		//日志目录
+#define ERR_SN				"sn-error-record.txt"	//错误日志的序号文件
+#define NORMAL_SN			"sn-normal-record.txt"	//一般日志的序号文件
+```
 
 # 4. 后期
 

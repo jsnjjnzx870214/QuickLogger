@@ -109,11 +109,12 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 }
 
 LoggerManage::LoggerManage() {
-	logs_zipped_flag_ = FALSE;
+	logs_zipped_flag_ = false;
 	logs_current_normal_sn_ = ReadCurrentLogSn(LOG_LEVEL_NORMAL);
 	logs_current_error_sn_ = ReadCurrentLogSn(LOG_LEVEL_ERROR);
 	printf("logs_current_normal_sn_:%d\nlogs_current_error_sn_:%d\n", logs_current_normal_sn_, logs_current_error_sn_);
 	pthread_mutex_init(&logs_Pool_lock_, NULL);
+
 }
 
 LoggerManage::~LoggerManage() {
@@ -207,7 +208,7 @@ int LoggerManage::LogWrite() {
 		printf("logs_normal_written_byte:%d\n", logs_normal_written_byte);
 		logs_Pool_.clear();
 		pthread_mutex_unlock(&logs_Pool_lock_);
-		logs_sync_flag_ = FALSE;
+		logs_sync_flag_ = false;
 		fclose(fp);
 	}
 	return 0;
@@ -255,7 +256,7 @@ int LoggerManage::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
 		printf("system call err:%d\n", ret);
 		return -1;
 	}
-	logs_zipped_flag_ = TRUE;
+	logs_zipped_flag_ = true;
 	return 0;
 }
 
@@ -266,22 +267,22 @@ int LoggerManage::LogClean() {
 	struct dirent * file;
 	struct stat stat_buf;
 	char file_full_name[FULL_NAME_LEN] = { 0 };
-	unsigned char log_type_normal_flag = FALSE, log_type_error_flag = FALSE;
+	unsigned char log_type_normal_flag = false, log_type_error_flag = false;
 	char ascic[ASCIC_LEN] = { 0 };
 	unsigned int figure = 0;
 
 	if (!logs_zipped_flag_) {
 		return 0;
 	}
-	logs_zipped_flag_ = FALSE;
+	logs_zipped_flag_ = false;
 
 	if (logs_current_normal_sn_ > MAX_NORMAL_ZIP_LOGS_ON_DISK) {
 		printf("logs_current_normal_sn_ need clean\n");
-		log_type_normal_flag = TRUE;
+		log_type_normal_flag = true;
 	}
 	if (logs_current_error_sn_ > MAX_ERROR_ZIP_LOGS_ON_DISK) {
 		printf("logs_current_error_sn_ need clean\n");
-		log_type_error_flag = TRUE;
+		log_type_error_flag = true;
 	}
 	if (!log_type_normal_flag && !log_type_error_flag) {
 		printf("no log need to be clean\n");

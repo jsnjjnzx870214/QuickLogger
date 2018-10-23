@@ -10,7 +10,8 @@
 #define MAX_LOG_DIR_SPACE			1024*1024*10	//日志目录最大给定空间，用于发生致命错误时，保护终端存储空间不会被占满
 
 
-#define LOG_ROOT_PATH		"/mnt/user/LOG/"		//日志目录
+#define LOG_ROOT_PATH		"/mnt/hgfs/Develop/Study/QuickLogger/log/"		//日志目录
+//#define LOG_ROOT_PATH		"/mnt/user/LOG/"		//日志目录
 #define ERR_SN				"sn-error-record.txt"	//错误日志的序号文件
 #define NORMAL_SN			"sn-normal-record.txt"	//一般日志的序号文件
 
