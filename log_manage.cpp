@@ -6,7 +6,7 @@
 
 
 void * LogProess(void * ptr) {
-	LoggerManage *log_manage_instant = (LoggerManage *) ptr;
+	LogManager *log_manage_instant = (LogManager *)ptr;
 	while (1) {
 		timeval tv = { 0 };
 		tv.tv_sec = 3;
@@ -22,7 +22,7 @@ void * LogProess(void * ptr) {
 }
 
 void Log_Manage() {
-	LoggerManage log_manage_instant;
+	LogManager& log_manage_instant = LogManager::GetInstance();
 
 	int nMsqId = msgget(LOG_MESSAGE_QUEUE_KEY, IPC_CREAT | 0666);
 	int nRecvLen = 0;
@@ -57,7 +57,6 @@ void Log_Manage() {
 	return ;
 
 }
-
 
 int main() {
 	Log_Manage();

@@ -1,5 +1,6 @@
 #include "quick_logger.h"
 
+
 void * Task1(void * pData) {
 	while (1) {
 		LogN_R("task1", "Hello %s", "test_task1 1");

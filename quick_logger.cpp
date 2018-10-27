@@ -19,7 +19,6 @@ int GetFirstKeyPosition(const char* pStr, char nKey)
 	return -1;
 }
 
-
 int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char * pSendBuff, unsigned short nSendBuffLen)
 {
 	if (NULL == pSendBuff || 0 == nSendBuffLen) {
@@ -108,30 +107,33 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 	return nRet = 0;
 }
 
-LoggerManage::LoggerManage() {
+LogManager* LogManager::log_manage_instance_ = NULL;
+
+LogManager::LogManager() {
 	logs_zipped_flag_ = false;
 	logs_current_normal_sn_ = ReadCurrentLogSn(LOG_LEVEL_NORMAL);
 	logs_current_error_sn_ = ReadCurrentLogSn(LOG_LEVEL_ERROR);
 	printf("logs_current_normal_sn_:%d\nlogs_current_error_sn_:%d\n", logs_current_normal_sn_, logs_current_error_sn_);
-	pthread_mutex_init(&logs_Pool_lock_, NULL);
-
 }
 
-LoggerManage::~LoggerManage() {
-
+LogManager& LogManager::GetInstance() {
+	if (log_manage_instance_ == NULL) {
+		log_manage_instance_ = new LogManager();
+	}
+	return *log_manage_instance_;
 }
 
-unsigned int LoggerManage::ReadCurrentLogSn(LOG_LEVEL log_level) {
+unsigned int LogManager::ReadCurrentLogSn(LOG_LEVEL log_level) {
 	char filename[70] = { 0 };
 	char tmp[10] = { 0 };
 	unsigned int sn = 0;
 
-	snprintf(filename, sizeof(filename), "%s%s",LOG_ROOT_PATH, (log_level== LOG_LEVEL_ERROR)? ERR_SN: NORMAL_SN);
+	snprintf(filename, sizeof(filename), "%s%s", LOG_ROOT_PATH, (log_level == LOG_LEVEL_ERROR) ? ERR_SN : NORMAL_SN);
 	FILE * fp = fopen(filename, "r+b");
 	if (NULL == fp) {
 		fp = fopen(filename, "w+b");
 		//新创建，序号从1开始
-		snprintf(tmp, sizeof(tmp),"1\n");
+		snprintf(tmp, sizeof(tmp), "1\n");
 		fputs(tmp, fp);
 		printf("%s 创建成功\n", filename);
 		fclose(fp);
@@ -141,14 +143,15 @@ unsigned int LoggerManage::ReadCurrentLogSn(LOG_LEVEL log_level) {
 	fgets(tmp, sizeof(tmp), fp);
 	if (strlen(tmp)) {
 		sn = atoi(tmp);
-	} else {
+	}
+	else {
 		sn = 0;
 	}
 	fclose(fp);
 	return sn;
 }
 
-unsigned int LoggerManage::WriteCurrentLogSn(LOG_LEVEL log_level, int log_sn) {
+unsigned int LogManager::WriteCurrentLogSn(LOG_LEVEL log_level, unsigned int log_sn) {
 	char filename[70] = { 0 };
 	char tmp[10] = { 0 };
 
@@ -164,13 +167,15 @@ unsigned int LoggerManage::WriteCurrentLogSn(LOG_LEVEL log_level, int log_sn) {
 	return log_sn;
 }
 
-int LoggerManage::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
+
+int LogManager::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 	if (NULL == send_buff) {
 		return -1;
 	}
 	pthread_mutex_lock(&logs_Pool_lock_);
 	logs_Pool_.push_back(send_buff);
 	pthread_mutex_unlock(&logs_Pool_lock_);
+
 	if (log_level == LOG_LEVEL_ERROR) {
 		char filename[70] = { 0 };
 		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-error.txt", (long unsigned int)logs_current_error_sn_);
@@ -182,13 +187,13 @@ int LoggerManage::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 			fseek(fp, 0, SEEK_END);
 		}
 		fputs(send_buff, fp);
-		logs_error_written_byte = ftell(fp);
+		logs_error_written_byte_ = ftell(fp);
 		fclose(fp);
 	}
 	return 0;
 }
 
-int LoggerManage::LogWrite() {
+int LogManager::LogWrite() {
 	char filename[70] = { 0 };
 	if (logs_Pool_.size() >= MAX_LOG_CACHE_COUNT || logs_sync_flag_) {
 		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-normal.txt", (long unsigned int)logs_current_normal_sn_);
@@ -204,45 +209,46 @@ int LoggerManage::LogWrite() {
 		for (iter = logs_Pool_.begin(); iter != logs_Pool_.end(); iter++) {
 			fputs(iter->c_str(), fp);
 		}
-		logs_normal_written_byte = ftell(fp);
-		printf("logs_normal_written_byte:%d\n", logs_normal_written_byte);
+		logs_normal_written_byte_ = ftell(fp);
+		printf("logs_normal_written_byte:%d\n", logs_normal_written_byte_);
 		logs_Pool_.clear();
 		pthread_mutex_unlock(&logs_Pool_lock_);
 		logs_sync_flag_ = false;
 		fclose(fp);
+
 	}
 	return 0;
 }
 
-int LoggerManage::LogSwitch() {
-	if (logs_normal_written_byte >= LOG_SWITCH_BYTE) {
-		printf("切换NORMAL日志:%d->%d\n", logs_current_normal_sn_, logs_current_normal_sn_ +1);
+int LogManager::LogSwitch() {
+	if (logs_normal_written_byte_  >= LOG_SWITCH_BYTE) {
+		printf("切换NORMAL日志:%d->%d\n", logs_current_normal_sn_, logs_current_normal_sn_ + 1);
 		LogCompress(LOG_LEVEL_NORMAL, logs_current_normal_sn_);
-		logs_current_normal_sn_ = (logs_current_normal_sn_ >= 9999999) ? 1 : logs_current_normal_sn_ + 1;
-		logs_normal_written_byte = 0;
+		logs_current_normal_sn_ = logs_current_normal_sn_ + 1;
+		logs_normal_written_byte_ = 0;
 		WriteCurrentLogSn(LOG_LEVEL_NORMAL, logs_current_normal_sn_);
-	} 
-	if (logs_error_written_byte >= LOG_SWITCH_BYTE) {
-		printf("切换ERROR日志:%d->%d\n", logs_current_error_sn_, logs_current_error_sn_+1);
+	}
+	if (logs_error_written_byte_ >= LOG_SWITCH_BYTE) {
+		printf("切换ERROR日志:%d->%d\n", logs_current_error_sn_, logs_current_error_sn_ + 1);
 		LogCompress(LOG_LEVEL_ERROR, logs_current_error_sn_);
-		logs_current_error_sn_ = (logs_current_error_sn_ >= 9999999) ? 1 : logs_current_error_sn_ + 1;
-		logs_error_written_byte = 0;
+		logs_current_error_sn_ = logs_current_error_sn_ + 1;
+		logs_error_written_byte_ = 0;
 		WriteCurrentLogSn(LOG_LEVEL_ERROR, logs_current_error_sn_);
 	}
 	return 0;
 }
 
-int LoggerManage::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
+int LogManager::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
 	int ret = -1;
 	char command[256] = { 0 };
 	switch (log_level)
 	{
 	case LOG_LEVEL_NORMAL: {
-		snprintf(command, sizeof(command), "cd " LOG_ROOT_PATH ";echo 'normal-log %u zipping';tar jcvf log-%07u-all-normal.tar.gz log-%07u-all-normal.txt;rm log-%07u-all-normal.txt", sn, sn, sn, sn);
+		snprintf(command, sizeof(command), "cd " LOG_ROOT_PATH ";tar jcvf log-%07u-all-normal.tar.gz log-%07u-all-normal.txt;rm log-%07u-all-normal.txt", sn, sn, sn);
 		break;
 	}
 	case LOG_LEVEL_ERROR: {
-		snprintf(command, sizeof(command), "cd " LOG_ROOT_PATH ";echo 'error-log %u zipping';tar jcvf log-%07u-all-error.tar.gz log-%07u-all-error.txt;rm log-%07u-all-error.txt", sn, sn, sn, sn);
+		snprintf(command, sizeof(command), "cd " LOG_ROOT_PATH ";tar jcvf log-%07u-all-error.tar.gz log-%07u-all-error.txt;rm log-%07u-all-error.txt", sn, sn, sn);
 		break;
 	}
 	default: {
@@ -256,70 +262,57 @@ int LoggerManage::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
 		printf("system call err:%d\n", ret);
 		return -1;
 	}
+	logs_sync_flag_ = true;
 	logs_zipped_flag_ = true;
 	return 0;
 }
 
-int LoggerManage::LogClean() {
+int LogManager::LogClean() {
 #define FULL_NAME_LEN	80
 #define ASCIC_LEN		128
 	DIR * dir_ptr = NULL;
 	struct dirent * file;
 	struct stat stat_buf;
 	char file_full_name[FULL_NAME_LEN] = { 0 };
-	unsigned char log_type_normal_flag = false, log_type_error_flag = false;
 	char ascic[ASCIC_LEN] = { 0 };
 	unsigned int figure = 0;
-
+	unsigned int logs_folder_size = 0;
 	if (!logs_zipped_flag_) {
 		return 0;
 	}
 	logs_zipped_flag_ = false;
-
-	if (logs_current_normal_sn_ > MAX_NORMAL_ZIP_LOGS_ON_DISK) {
-		printf("logs_current_normal_sn_ need clean\n");
-		log_type_normal_flag = true;
-	}
-	if (logs_current_error_sn_ > MAX_ERROR_ZIP_LOGS_ON_DISK) {
-		printf("logs_current_error_sn_ need clean\n");
-		log_type_error_flag = true;
-	}
-	if (!log_type_normal_flag && !log_type_error_flag) {
-		printf("no log need to be clean\n");
-	}
 
 	dir_ptr = opendir(LOG_ROOT_PATH);
 	if (NULL == dir_ptr) {
 		printf("opendir err!\n");
 		return -1;
 	}
-
-	logs_folder_size_ = 0;
 	while ((file = readdir(dir_ptr)) != NULL) {
-		
+
 		if (file->d_type != DT_REG) {
 			continue;	//去除非常规文件
 		}
 		memset(file_full_name, 0x00, FULL_NAME_LEN);
 		snprintf(file_full_name, FULL_NAME_LEN, LOG_ROOT_PATH "%s", file->d_name);
 		stat(file_full_name, &stat_buf);
-		logs_folder_size_ += stat_buf.st_size;
+		logs_folder_size += stat_buf.st_size;
 		//printf("file name is %s,size is %d\n", file->d_name, (int)stat_buf.st_size);
 		//先判断normal文件
-		if (log_type_normal_flag && (0 != strstr(file->d_name,"normal.tar.gz"))) {
+		if (0 != strstr(file->d_name, "normal.tar.gz")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
-			if (figure <= logs_current_normal_sn_ - MAX_NORMAL_ZIP_LOGS_ON_DISK - 1) {
+			printf("file name is %s,figure :%d  logs_current_normal_sn_:%d\n", file->d_name, figure, logs_current_normal_sn_);
+			if ((logs_current_normal_sn_ > MAX_NORMAL_ZIP_LOGS_ON_DISK) && (figure <= logs_current_normal_sn_ - MAX_NORMAL_ZIP_LOGS_ON_DISK - 1)) {
 				printf("file:%s need to be delete\n", file->d_name);
-				snprintf(ascic, ASCIC_LEN,"cd " LOG_ROOT_PATH "; rm %s", file->d_name);
+				snprintf(ascic, ASCIC_LEN, "cd " LOG_ROOT_PATH "; rm %s", file->d_name);
 				system(ascic);
 			}
 		}
 		//再判断error文件
-		if (log_type_error_flag && (0 != strstr(file->d_name, "error.tar.gz"))) {
+		if (0 != strstr(file->d_name, "error.tar.gz")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
-			if (figure <= logs_current_error_sn_ - MAX_ERROR_ZIP_LOGS_ON_DISK - 1) {
+			if ((logs_current_error_sn_ > MAX_ERROR_ZIP_LOGS_ON_DISK) && (figure <= logs_current_error_sn_ - MAX_ERROR_ZIP_LOGS_ON_DISK - 1)) {
 				printf("file:%s need to be delete\n", file->d_name);
 				snprintf(ascic, ASCIC_LEN, "cd " LOG_ROOT_PATH "; rm %s", file->d_name);
 				system(ascic);
@@ -328,17 +321,13 @@ int LoggerManage::LogClean() {
 	}
 	closedir(dir_ptr);
 	//终极文件夹大小防护
-	if (logs_folder_size_ > MAX_LOG_DIR_SPACE) {
+	if (logs_folder_size > MAX_LOG_DIR_SPACE) {
 		system("rm " LOG_ROOT_PATH "/*;");
 		printf("文件夹超出设定阈值，删除全部内容\n");
 	}
 
 	return 0;
 }
-
-
-
-
 
 
 

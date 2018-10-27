@@ -127,22 +127,11 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char* pSendBuff, unsigned short nSendBuffLen);
 
 
-class LoggerManage 
-{
+class LogManager {
 public:
-	LoggerManage();
-	~LoggerManage();
-
-public:
-	int LogAppend(LOG_LEVEL log_level, const char* send_buff);
-	int LogWrite();
-	int LogSwitch();
-	int LogCompress(LOG_LEVEL log_level, unsigned int sn);
-	int LogClean();
-
-public:
+	static LogManager& GetInstance();
 	unsigned int ReadCurrentLogSn(LOG_LEVEL log_level);
-	unsigned int WriteCurrentLogSn(LOG_LEVEL log_level, int log_sn);
+	unsigned int WriteCurrentLogSn(LOG_LEVEL log_level, unsigned int log_sn);
 
 public:
 	list<string> logs_Pool_;				//日志缓存池
@@ -150,13 +139,25 @@ public:
 
 	unsigned int logs_current_normal_sn_;	//当前普通日志sn（序号）
 	unsigned int logs_current_error_sn_;	//当前错误日志sn（序号）
-	unsigned int logs_normal_written_byte;	//当前普通日志写入文件字节偏移
-	unsigned int logs_error_written_byte;	//当前错误日志写入文件字节偏移
+	unsigned int logs_normal_written_byte_;	//当前普通日志写入文件字节偏移
+	unsigned int logs_error_written_byte_;	//当前错误日志写入文件字节偏移
 
 	bool logs_sync_flag_;					//log立即同步标志
 	bool logs_zipped_flag_;					//log被压缩标志，0未压缩 1 被压缩  
-	unsigned int logs_folder_size_;			//文件夹大小
+
+	int LogAppend(LOG_LEVEL log_level, const char* send_buff);
+	int LogCompress(LOG_LEVEL log_level, unsigned int sn);
+	int LogWrite();
+	int LogSwitch();
+	int LogClean();
+
+private:
+	LogManager();
+
+private:
+	static LogManager * log_manage_instance_;
 };
+
 
 
 #endif // !_QUICK_LOGGER_H_
