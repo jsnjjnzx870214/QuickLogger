@@ -111,6 +111,7 @@ LogManager* LogManager::log_manage_instance_ = NULL;
 
 LogManager::LogManager() {
 	logs_zipped_flag_ = false;
+	logs_pool_total_len = 0;
 	logs_current_normal_sn_ = ReadCurrentLogSn(LOG_LEVEL_NORMAL);
 	logs_current_error_sn_ = ReadCurrentLogSn(LOG_LEVEL_ERROR);
 	printf("logs_current_normal_sn_:%d\nlogs_current_error_sn_:%d\n", logs_current_normal_sn_, logs_current_error_sn_);
@@ -172,9 +173,15 @@ int LogManager::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 	if (NULL == send_buff) {
 		return -1;
 	}
-	pthread_mutex_lock(&logs_Pool_lock_);
-	logs_Pool_.push_back(send_buff);
-	pthread_mutex_unlock(&logs_Pool_lock_);
+	pthread_mutex_lock(&logs_pool_lock_);
+	logs_pool_.push_back(send_buff);
+	logs_pool_total_len += strlen(send_buff);
+	pthread_mutex_unlock(&logs_pool_lock_);
+
+	if (logs_pool_total_len >= MAX_LOG_POOL_BYTES) {
+		logs_pool_total_len = 0;
+		logs_sync_flag_ = true;
+	}
 
 	if (log_level == LOG_LEVEL_ERROR) {
 		char filename[70] = { 0 };
@@ -195,7 +202,7 @@ int LogManager::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 
 int LogManager::LogWrite() {
 	char filename[70] = { 0 };
-	if (logs_Pool_.size() >= MAX_LOG_CACHE_COUNT || logs_sync_flag_) {
+	if (logs_pool_.size() >= MAX_LOG_CACHE_COUNT || logs_sync_flag_) {
 		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-normal.txt", (long unsigned int)logs_current_normal_sn_);
 		FILE * fp = fopen(filename, "r+b");
 		if (NULL == fp) {
@@ -204,15 +211,15 @@ int LogManager::LogWrite() {
 		else {
 			fseek(fp, 0, SEEK_END);
 		}
-		pthread_mutex_lock(&logs_Pool_lock_);
+		pthread_mutex_lock(&logs_pool_lock_);
 		list< string >::iterator iter;
-		for (iter = logs_Pool_.begin(); iter != logs_Pool_.end(); iter++) {
+		for (iter = logs_pool_.begin(); iter != logs_pool_.end(); iter++) {
 			fputs(iter->c_str(), fp);
 		}
 		logs_normal_written_byte_ = ftell(fp);
 		printf("logs_normal_written_byte:%d\n", logs_normal_written_byte_);
-		logs_Pool_.clear();
-		pthread_mutex_unlock(&logs_Pool_lock_);
+		logs_pool_.clear();
+		pthread_mutex_unlock(&logs_pool_lock_);
 		logs_sync_flag_ = false;
 		fclose(fp);
 
@@ -298,7 +305,7 @@ int LogManager::LogClean() {
 		logs_folder_size += stat_buf.st_size;
 		//printf("file name is %s,size is %d\n", file->d_name, (int)stat_buf.st_size);
 		//先判断normal文件
-		if (0 != strstr(file->d_name, "normal.tar.gz")) {
+		if (0 != strstr(file->d_name, "normal.tar.gz") || 0 != strstr(file->d_name, "normal.txt")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
 			printf("file name is %s,figure :%d  logs_current_normal_sn_:%d\n", file->d_name, figure, logs_current_normal_sn_);
@@ -309,7 +316,7 @@ int LogManager::LogClean() {
 			}
 		}
 		//再判断error文件
-		if (0 != strstr(file->d_name, "error.tar.gz")) {
+		if (0 != strstr(file->d_name, "error.tar.gz") || 0 != strstr(file->d_name, "error.txt")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
 			if ((logs_current_error_sn_ > MAX_ERROR_ZIP_LOGS_ON_DISK) && (figure <= logs_current_error_sn_ - MAX_ERROR_ZIP_LOGS_ON_DISK - 1)) {

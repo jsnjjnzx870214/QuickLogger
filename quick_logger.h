@@ -134,8 +134,9 @@ public:
 	unsigned int WriteCurrentLogSn(LOG_LEVEL log_level, unsigned int log_sn);
 
 public:
-	list<string> logs_Pool_;				//日志缓存池
-	pthread_mutex_t logs_Pool_lock_;		//日志缓存的锁
+	list<string> logs_pool_;				//日志缓存池
+	pthread_mutex_t logs_pool_lock_;		//日志缓存的锁
+	unsigned int logs_pool_total_len;		//日志缓存池中字节总长度
 
 	unsigned int logs_current_normal_sn_;	//当前普通日志sn（序号）
 	unsigned int logs_current_error_sn_;	//当前错误日志sn（序号）
@@ -153,7 +154,8 @@ public:
 
 private:
 	LogManager();
-
+	LogManager(const LogManager&);
+	LogManager& operator= (const LogManager&);
 private:
 	static LogManager * log_manage_instance_;
 };
