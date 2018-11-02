@@ -4,7 +4,8 @@
 
 # 1. 介绍
 
-[QuickLogger](https://github.com/jsnjjnzx870214/QuickLogger)是一款应用于嵌入式Linux设备（Embedded Linux）中的快速日志管理程序。
+[QuickLogger](https://github.com/jsnjjnzx870214/QuickLogger)是一款应用于嵌入式Linux设备（Embedded Linux）中的快速日志管理程序。它绝对简单，小巧，几乎无需任何配置即可开始工作。
+对于使用者来说，仅仅只需提供一个进程（或线程），调用Log_Manage这一个函数即可开始工作。
 
 ## 1.1 主要特性
 
@@ -69,11 +70,7 @@
 # 2. 使用
 
 ## 2.1 基本API
-- Log_Manage 	日志管理线程;
-- LogProess  	日志处理数据线程;
-- LogWrite		日志写入;
-- LogSwitch		日志切换；
-- LogClean		日志清理；
+- Log_Manage 	日志管理线程,开辟一个日志管理线程（进程），然后调用此函数即可。
 
 ## 2.2 输出级别
 - LogD			Debug日志级别
@@ -116,12 +113,13 @@ N 10-13 20:56:11.106#895~task1 Hello test_task1  <test_task1.cpp:15>
 **使用期请先配置log_config.h文件，说明如下：**
 
 ```
-#define MESSAGE_TYPE				300356			//不知道写啥，就写公司股票代码吧 
+#define MESSAGE_TYPE				300356			//不知道写啥，就写公司股票代码吧
 #define LOG_MESSAGE_QUEUE_KEY		300356			//日志消息队列KEY
-#define LOG_SWITCH_BYTE				1024 * 256		//日志切换最大字节数  
+#define LOG_SWITCH_BYTE				1024 * 128		//日志切换最大字节数  
 #define MAX_NORMAL_ZIP_LOGS_ON_DISK	50				//普通日志压缩包保留数量
 #define MAX_ERROR_ZIP_LOGS_ON_DISK	5				//错误日志压缩包保留数量
-#define MAX_LOG_CACHE_COUNT			50				//普通日志最大缓存数量，超出此值，写入FLASH
+#define MAX_LOG_CACHE_COUNT			50				//普通日志最大缓存条数，超出此值，写入FLASH
+#define MAX_LOG_POOL_BYTES			512				//日志缓存池最大缓存数量，防止单日志长度很长，但是总条数不多，所以一直不写入文件的问题
 #define MAX_LOG_DIR_SPACE			1024*1024*10	//日志目录最大给定空间，用于发生致命错误时，保护终端存储空间不会被占满
 
 #define LOG_ROOT_PATH		"/mnt/user/LOG/"		//日志目录
