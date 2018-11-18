@@ -1,4 +1,10 @@
-#include "quick_logger.h"
+#include <unistd.h>
+#include <string>
+//#include <stdio.h>
+
+
+#include "log_user.h"
+
 
 
 void * Task1(void * pData) {
@@ -86,19 +92,19 @@ int main() {
 	pthread_t	logger_task1_id, logger_task2_id, logger_task3_id, logger_task4_id;
 
 	if ((pthread_create(&logger_task1_id, NULL, Task1, NULL) == -1)) {
-		printf("create error1!\n");
+		//printf("create error1!\n");
 		return 0;
 	}
 	if ((pthread_create(&logger_task2_id, NULL, Task2, NULL) == -1)) {
-		printf("create error2!\n");
+		//printf("create error2!\n");
 		return 0;
 	}
 	if ((pthread_create(&logger_task3_id, NULL, Task3, NULL) == -1)) {
-		printf("create error3!\n");
+		//printf("create error3!\n");
 		return 0;
 	}
 	if ((pthread_create(&logger_task4_id, NULL, Task4, NULL) == -1)) {
-		printf("create error4!\n");
+		//printf("create error4!\n");
 		return 0;
 	}
 	while (1) {

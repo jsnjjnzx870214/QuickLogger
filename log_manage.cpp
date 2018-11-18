@@ -1,9 +1,13 @@
-#include <stdio.h>
 #include <string.h>
 #include <memory>
 #include <pthread.h>
+#include "log_manage.h"
 #include "quick_logger.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 void * LogProess(void * ptr) {
 	LogManager *log_manage_instant = (LogManager *)ptr;
@@ -20,6 +24,7 @@ void * LogProess(void * ptr) {
 	}
 	return 0;
 }
+
 
 void Log_Manage() {
 	LogManager& log_manage_instant = LogManager::GetInstance();
@@ -55,16 +60,11 @@ void Log_Manage() {
 		}
 	}
 	return ;
-
 }
-
-int main() {
-	Log_Manage();
-	while (1) {
-		sleep(10000);
-	}
-	return 0;
+#ifdef __cplusplus
 }
+#endif
+
 
 
 

@@ -10,8 +10,7 @@
 #include "quick_logger.h"
 
 
-int GetFirstKeyPosition(const char* pStr, char nKey)
-{
+int GetFirstKeyPosition(const char* pStr, char nKey) {
 	for (unsigned int i = 0; i < strlen(pStr); i++) {
 		if (pStr[i] == nKey)
 			return i;
@@ -19,8 +18,7 @@ int GetFirstKeyPosition(const char* pStr, char nKey)
 	return -1;
 }
 
-int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char * pSendBuff, unsigned short nSendBuffLen)
-{
+int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char * pSendBuff, unsigned short nSendBuffLen) {
 	if (NULL == pSendBuff || 0 == nSendBuffLen) {
 		return -1;
 	}
@@ -64,7 +62,7 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 	int x,y;	//x 前导长度(时间、pid等)   y 不定参数长度
 	gettimeofday(&tv, NULL);
 	p = localtime(&tv.tv_sec);
-	x = snprintf(prefix, sizeof(prefix), "D %02d-%02d %02d:%02d:%02d.%03ld#%u~%s ", 1 + p->tm_mon, \
+	x = snprintf(prefix, sizeof(prefix), "D %02d-%02d %02d:%02d:%02d.%03ld#%u~%s ", (1 + p->tm_mon) > 12 ? (1 + p->tm_mon) : 1, \
 																					p->tm_mday, \
 																					p->tm_hour, \
 																					p->tm_min, \
@@ -100,6 +98,7 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 		return 0;
 	}
 	if (LogSend(LOG_TYPE_MESSAGE, log_level, pContent, strlen(pContent)) >= 0) {
+
 		delete []pContent;
 		return nRet = -3;
 	}
@@ -275,8 +274,8 @@ int LogManager::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
 }
 
 int LogManager::LogClean() {
-#define FULL_NAME_LEN	80
-#define ASCIC_LEN		128
+#define FULL_NAME_LEN	128
+#define ASCIC_LEN		80
 	DIR * dir_ptr = NULL;
 	struct dirent * file;
 	struct stat stat_buf;
