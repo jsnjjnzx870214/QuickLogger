@@ -23,27 +23,27 @@ int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char * pSendBuff, unsi
 		return -1;
 	}
 		
-	char * pData = new char[sizeof(LogHeader) + nSendBuffLen];
+	char * pData = new char[sizeof(ST_LOGHEADER) + nSendBuffLen];
 	if (NULL == pData) {
 		printf("log-send apply for space err\n");
 		return -2;
 	}
 	char * anchor = pData;
-	LogHeader * pHead = (LogHeader*)anchor;
+	ST_LOGHEADER * pHead = (ST_LOGHEADER*)anchor;
 	
 	pHead->message_type = MESSAGE_TYPE;
 	pHead->sender = getpid();
 	pHead->type = log_type;
 	pHead->level = log_level;
 	pHead->length = nSendBuffLen;
-	memcpy(anchor + sizeof(LogHeader), pSendBuff, nSendBuffLen);
+	memcpy(anchor + sizeof(ST_LOGHEADER), pSendBuff, nSendBuffLen);
 	int nMsqId = msgget(LOG_MESSAGE_QUEUE_KEY, IPC_CREAT | 0666);
 	if (nMsqId < 0) {
 		delete[]pData;
 		return -3;
 	}
 	//printf("进程号:%d发送日志%s\n", pHead->sender, pSendBuff);
-	int nRet = msgsnd(nMsqId, pData, sizeof(LogHeader) + nSendBuffLen - sizeof(pHead->message_type), IPC_NOWAIT);
+	int nRet = msgsnd(nMsqId, pData, sizeof(ST_LOGHEADER) + nSendBuffLen - sizeof(pHead->message_type), IPC_NOWAIT);
 	if (nRet < 0){
 		printf("log - send msgsnd err:%d",errno);
 		delete[]pData;
@@ -54,7 +54,7 @@ int LogSend(LOG_TYPE log_type, LOG_LEVEL log_level, const char * pSendBuff, unsi
 }
 //先加上日志头和颜色进行打印，然后将原始报文放入消息队列中进行发送
 int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * format, ...) {
-	int nRet = -1;
+	int ret = -1;
 	va_list ap;
 	char prefix[40] = { 0 };
 	struct timeval	tv;
@@ -72,70 +72,70 @@ int LogPrintf(LOG_LEVEL log_level, const char * tag, int color, const char * for
 																					tag);
 	int nPosition = GetFirstKeyPosition(prefix, 'D');
 	if (nPosition < 0) {
-		return nRet = -1;
+		return ret = -1;
 	}
 	//printf("%s\n", prefix);
 	prefix[nPosition] = (log_level == LOG_LEVEL_NORMAL) ? 'N' : ((log_level == LOG_LEVEL_DEBUG) ? 'D' : 'E');
 	va_start(ap, format);
 	y = vsnprintf(0, 0, format, ap);//预估不定参数的总长度
-	unsigned short nSendLen = x + y + 1;
+	unsigned short send_len = x + y + 1;
 	//printf("头长度:%d，内容长度:%d,开辟长度:%d\n", x, y, nSendLen);
-	char * pContent = new char[nSendLen];
-	if (pContent == NULL){
-		return nRet = -2;
+	char * content = new char[send_len];
+	if (content == NULL){
+		return ret = -2;
 	}
-	memset(pContent, 0x00, sizeof(nSendLen));
-	memcpy(pContent, prefix, x);
-	vsnprintf(pContent + strlen(prefix), nSendLen - strlen(prefix), format, ap);
+	memset(content, 0x00, sizeof(send_len));
+	memcpy(content, prefix, x);
+	vsnprintf(content + strlen(prefix), send_len - strlen(prefix), format, ap);
 	va_end(ap);
-	printf("\033[%dm%s\033[m\n", color, pContent);
-	int i = strlen(pContent);
-	pContent[i++] = '\n';
-	pContent[i++] = '\0';
+	printf("\033[%dm%s\033[m\n", color, content);
+	int i = strlen(content);
+	content[i++] = '\n';
+	content[i++] = '\0';
 
 	if (log_level == LOG_LEVEL_DEBUG) {
-		delete []pContent;
+		delete []content;
 		return 0;
 	}
-	if (LogSend(LOG_TYPE_MESSAGE, log_level, pContent, strlen(pContent)) >= 0) {
+	if (LogSend(LOG_TYPE_MESSAGE, log_level, content, strlen(content)) >= 0) {
 
-		delete []pContent;
-		return nRet = -3;
+		delete []content;
+		return ret = -3;
 	}
-	delete[]pContent;
-	return nRet = 0;
+	delete[]content;
+	return ret = 0;
 }
 
-LogManager* LogManager::log_manage_instance_ = NULL;
+LogManager* LogManager::m_log_manage_instance = NULL;
 
 LogManager::LogManager() {
-	logs_zipped_flag_ = false;
-	logs_pool_total_len = 0;
-	logs_current_normal_sn_ = ReadCurrentLogSn(LOG_LEVEL_NORMAL);
-	logs_current_error_sn_ = ReadCurrentLogSn(LOG_LEVEL_ERROR);
-	printf("logs_current_normal_sn_:%d\nlogs_current_error_sn_:%d\n", logs_current_normal_sn_, logs_current_error_sn_);
+	m_logs_zipped_flag = false;
+	m_logs_pool_total_len = 0;
+	m_logs_current_normal_sn = ReadCurrentLogSn(LOG_LEVEL_NORMAL);
+	m_logs_current_error_sn = ReadCurrentLogSn(LOG_LEVEL_ERROR);
+	printf("logs_current_normal_sn_:%d\nlogs_current_error_sn_:%d\n", m_logs_current_normal_sn, m_logs_current_error_sn);
 }
 
 LogManager& LogManager::GetInstance() {
-	if (log_manage_instance_ == NULL) {
-		log_manage_instance_ = new LogManager();
+	if (m_log_manage_instance == NULL) {
+		m_log_manage_instance = new LogManager();
 	}
-	return *log_manage_instance_;
+	return *m_log_manage_instance;
 }
 
 unsigned int LogManager::ReadCurrentLogSn(LOG_LEVEL log_level) {
-	char filename[70] = { 0 };
+	char file_name[70] = { 0 };
 	char tmp[10] = { 0 };
 	unsigned int sn = 0;
 
-	snprintf(filename, sizeof(filename), "%s%s", LOG_ROOT_PATH, (log_level == LOG_LEVEL_ERROR) ? ERR_SN : NORMAL_SN);
-	FILE * fp = fopen(filename, "r+b");
+	snprintf(file_name, sizeof(file_name), "%s%s", LOG_ROOT_PATH, (log_level == LOG_LEVEL_ERROR) ? ERR_SN : NORMAL_SN);
+	FILE * fp = fopen(file_name, "r+b");
 	if (NULL == fp) {
-		fp = fopen(filename, "w+b");
+		fp = fopen(file_name, "w+b");
 		//新创建，序号从1开始
 		snprintf(tmp, sizeof(tmp), "1\n");
 		fputs(tmp, fp);
-		printf("%s 创建成功\n", filename);
+		printf("%s 创建成功\n", file_name);
 		fclose(fp);
 		return 1;
 	}
@@ -152,11 +152,11 @@ unsigned int LogManager::ReadCurrentLogSn(LOG_LEVEL log_level) {
 }
 
 unsigned int LogManager::WriteCurrentLogSn(LOG_LEVEL log_level, unsigned int log_sn) {
-	char filename[70] = { 0 };
+	char file_name[70] = { 0 };
 	char tmp[10] = { 0 };
 
-	snprintf(filename, sizeof(filename), "%s%s", LOG_ROOT_PATH, (log_level == LOG_LEVEL_ERROR) ? ERR_SN : NORMAL_SN);
-	FILE * fp = fopen(filename, "w+b");
+	snprintf(file_name, sizeof(file_name), "%s%s", LOG_ROOT_PATH, (log_level == LOG_LEVEL_ERROR) ? ERR_SN : NORMAL_SN);
+	FILE * fp = fopen(file_name, "w+b");
 	if (NULL == fp) {
 		return 0;
 	}
@@ -172,19 +172,19 @@ int LogManager::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 	if (NULL == send_buff) {
 		return -1;
 	}
-	pthread_mutex_lock(&logs_pool_lock_);
-	logs_pool_.push_back(send_buff);
-	logs_pool_total_len += strlen(send_buff);
-	pthread_mutex_unlock(&logs_pool_lock_);
+	pthread_mutex_lock(&m_logs_pool_lock);
+	m_logs_pool.push_back(send_buff);
+	m_logs_pool_total_len += strlen(send_buff);
+	pthread_mutex_unlock(&m_logs_pool_lock);
 
-	if (logs_pool_total_len >= MAX_LOG_POOL_BYTES) {
-		logs_pool_total_len = 0;
-		logs_sync_flag_ = true;
+	if (m_logs_pool_total_len >= MAX_LOG_POOL_BYTES) {
+		m_logs_pool_total_len = 0;
+		m_logs_sync_flag = true;
 	}
 
 	if (log_level == LOG_LEVEL_ERROR) {
 		char filename[70] = { 0 };
-		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-error.txt", (long unsigned int)logs_current_error_sn_);
+		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-error.txt", (long unsigned int)m_logs_current_error_sn);
 		FILE * fp = fopen(filename, "r+b");
 		if (NULL == fp) {
 			fp = fopen(filename, "w+b");
@@ -193,33 +193,33 @@ int LogManager::LogAppend(LOG_LEVEL log_level, const char* send_buff) {
 			fseek(fp, 0, SEEK_END);
 		}
 		fputs(send_buff, fp);
-		logs_error_written_byte_ = ftell(fp);
+		m_logs_error_written_byte = ftell(fp);
 		fclose(fp);
 	}
 	return 0;
 }
 
 int LogManager::LogWrite() {
-	char filename[70] = { 0 };
-	if (logs_pool_.size() >= MAX_LOG_CACHE_COUNT || logs_sync_flag_) {
-		snprintf(filename, sizeof(filename), LOG_ROOT_PATH "log-%07ld-all-normal.txt", (long unsigned int)logs_current_normal_sn_);
-		FILE * fp = fopen(filename, "r+b");
+	char file_name[70] = { 0 };
+	if (m_logs_pool.size() >= MAX_LOG_CACHE_COUNT || m_logs_sync_flag) {
+		snprintf(file_name, sizeof(file_name), LOG_ROOT_PATH "log-%07ld-all-normal.txt", (long unsigned int)m_logs_current_normal_sn);
+		FILE * fp = fopen(file_name, "r+b");
 		if (NULL == fp) {
-			fp = fopen(filename, "w+b");
+			fp = fopen(file_name, "w+b");
 		}
 		else {
 			fseek(fp, 0, SEEK_END);
 		}
-		pthread_mutex_lock(&logs_pool_lock_);
+		pthread_mutex_lock(&m_logs_pool_lock);
 		list< string >::iterator iter;
-		for (iter = logs_pool_.begin(); iter != logs_pool_.end(); iter++) {
+		for (iter = m_logs_pool.begin(); iter != m_logs_pool.end(); iter++) {
 			fputs(iter->c_str(), fp);
 		}
-		logs_normal_written_byte_ = ftell(fp);
-		printf("logs_normal_written_byte:%d\n", logs_normal_written_byte_);
-		logs_pool_.clear();
-		pthread_mutex_unlock(&logs_pool_lock_);
-		logs_sync_flag_ = false;
+		m_logs_normal_written_byte = ftell(fp);
+		printf("logs_normal_written_byte:%d\n", m_logs_normal_written_byte);
+		m_logs_pool.clear();
+		pthread_mutex_unlock(&m_logs_pool_lock);
+		m_logs_sync_flag = false;
 		fclose(fp);
 
 	}
@@ -227,19 +227,19 @@ int LogManager::LogWrite() {
 }
 
 int LogManager::LogSwitch() {
-	if (logs_normal_written_byte_  >= LOG_SWITCH_BYTE) {
-		printf("切换NORMAL日志:%d->%d\n", logs_current_normal_sn_, logs_current_normal_sn_ + 1);
-		LogCompress(LOG_LEVEL_NORMAL, logs_current_normal_sn_);
-		logs_current_normal_sn_ = logs_current_normal_sn_ + 1;
-		logs_normal_written_byte_ = 0;
-		WriteCurrentLogSn(LOG_LEVEL_NORMAL, logs_current_normal_sn_);
+	if (m_logs_normal_written_byte  >= LOG_SWITCH_BYTE) {
+		printf("切换NORMAL日志:%d->%d\n", m_logs_current_normal_sn, m_logs_current_normal_sn + 1);
+		LogCompress(LOG_LEVEL_NORMAL, m_logs_current_normal_sn);
+		m_logs_current_normal_sn = m_logs_current_normal_sn + 1;
+		m_logs_normal_written_byte = 0;
+		WriteCurrentLogSn(LOG_LEVEL_NORMAL, m_logs_current_normal_sn);
 	}
-	if (logs_error_written_byte_ >= LOG_SWITCH_BYTE) {
-		printf("切换ERROR日志:%d->%d\n", logs_current_error_sn_, logs_current_error_sn_ + 1);
-		LogCompress(LOG_LEVEL_ERROR, logs_current_error_sn_);
-		logs_current_error_sn_ = logs_current_error_sn_ + 1;
-		logs_error_written_byte_ = 0;
-		WriteCurrentLogSn(LOG_LEVEL_ERROR, logs_current_error_sn_);
+	if (m_logs_error_written_byte >= LOG_SWITCH_BYTE) {
+		printf("切换ERROR日志:%d->%d\n", m_logs_current_error_sn, m_logs_current_error_sn + 1);
+		LogCompress(LOG_LEVEL_ERROR, m_logs_current_error_sn);
+		m_logs_current_error_sn = m_logs_current_error_sn + 1;
+		m_logs_error_written_byte = 0;
+		WriteCurrentLogSn(LOG_LEVEL_ERROR, m_logs_current_error_sn);
 	}
 	return 0;
 }
@@ -268,8 +268,8 @@ int LogManager::LogCompress(LOG_LEVEL log_level, unsigned int sn) {
 		printf("system call err:%d\n", ret);
 		return -1;
 	}
-	logs_sync_flag_ = true;
-	logs_zipped_flag_ = true;
+	m_logs_sync_flag = true;
+	m_logs_zipped_flag = true;
 	return 0;
 }
 
@@ -283,10 +283,10 @@ int LogManager::LogClean() {
 	char ascic[ASCIC_LEN] = { 0 };
 	unsigned int figure = 0;
 	unsigned int logs_folder_size = 0;
-	if (!logs_zipped_flag_) {
+	if (!m_logs_zipped_flag) {
 		return 0;
 	}
-	logs_zipped_flag_ = false;
+	m_logs_zipped_flag = false;
 
 	dir_ptr = opendir(LOG_ROOT_PATH);
 	if (NULL == dir_ptr) {
@@ -307,8 +307,8 @@ int LogManager::LogClean() {
 		if (0 != strstr(file->d_name, "normal.tar.gz") || 0 != strstr(file->d_name, "normal.txt")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
-			printf("file name is %s,figure :%d  logs_current_normal_sn_:%d\n", file->d_name, figure, logs_current_normal_sn_);
-			if ((logs_current_normal_sn_ > MAX_NORMAL_ZIP_LOGS_ON_DISK) && (figure <= logs_current_normal_sn_ - MAX_NORMAL_ZIP_LOGS_ON_DISK - 1)) {
+			printf("file name is %s,figure :%d  logs_current_normal_sn_:%d\n", file->d_name, figure, m_logs_current_normal_sn);
+			if ((m_logs_current_normal_sn > MAX_NORMAL_ZIP_LOGS_ON_DISK) && (figure <= m_logs_current_normal_sn - MAX_NORMAL_ZIP_LOGS_ON_DISK - 1)) {
 				printf("file:%s need to be delete\n", file->d_name);
 				snprintf(ascic, ASCIC_LEN, "cd " LOG_ROOT_PATH "; rm %s", file->d_name);
 				system(ascic);
@@ -318,7 +318,7 @@ int LogManager::LogClean() {
 		if (0 != strstr(file->d_name, "error.tar.gz") || 0 != strstr(file->d_name, "error.txt")) {
 			//log-xxxxxx-all-normal.tar.gz
 			figure = atoi(&file->d_name[4]);
-			if ((logs_current_error_sn_ > MAX_ERROR_ZIP_LOGS_ON_DISK) && (figure <= logs_current_error_sn_ - MAX_ERROR_ZIP_LOGS_ON_DISK - 1)) {
+			if ((m_logs_current_error_sn > MAX_ERROR_ZIP_LOGS_ON_DISK) && (figure <= m_logs_current_error_sn - MAX_ERROR_ZIP_LOGS_ON_DISK - 1)) {
 				printf("file:%s need to be delete\n", file->d_name);
 				snprintf(ascic, ASCIC_LEN, "cd " LOG_ROOT_PATH "; rm %s", file->d_name);
 				system(ascic);

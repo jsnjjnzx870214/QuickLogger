@@ -29,9 +29,9 @@ void * LogProess(void * ptr) {
 void Log_Manage() {
 	LogManager& log_manage_instant = LogManager::GetInstance();
 
-	int nMsqId = msgget(LOG_MESSAGE_QUEUE_KEY, IPC_CREAT | 0666);
-	int nRecvLen = 0;
-	ST_MESSAGE sMessage = { 0 };
+	int message_id = msgget(LOG_MESSAGE_QUEUE_KEY, IPC_CREAT | 0666);
+	int message_receive_len = 0;
+	ST_MESSAGE message = { 0 };
 
 	pthread_t	logger_opera_id;
 
@@ -42,21 +42,21 @@ void Log_Manage() {
 
 	while (1)
 	{
-		nRecvLen = msgrcv(nMsqId, &sMessage, sizeof(sMessage.msg_text), 0x00/* | LOG_FEATURE_CODE*/, MSG_NOERROR);
-		if (nRecvLen) {
-			char * pAnchor = (char *)&sMessage.msg_type;
-			LogHeader * pHead = (LogHeader *)pAnchor;
-			char * pData = pAnchor + sizeof(LogHeader);
+		message_receive_len = msgrcv(message_id, &message, sizeof(message.msg_text), 0x00/* | LOG_FEATURE_CODE*/, MSG_NOERROR);
+		if (message_receive_len) {
+			char * anchor = (char *)&message.msg_type;
+			ST_LOGHEADER * log_head = (ST_LOGHEADER *)anchor;
+			char * log_data_content = anchor + sizeof(ST_LOGHEADER);
 			//printf("len :%d,sender:%x,type:%d,level:%d,length:%d\n", nRecvLen, pHead->sender,	pHead->type, pHead->level, pHead->length);
-			if (LOG_TYPE_SYNC == pHead->type) {
-				printf("进程号:%d立即同步\n", pHead->sender);
-				log_manage_instant.logs_sync_flag_ = true;
+			if (LOG_TYPE_SYNC == log_head->type) {
+				printf("进程号:%d立即同步\n", log_head->sender);
+				log_manage_instant.m_logs_sync_flag = true;
 			}
 			else {
 				//printf("进程号:%d收到日志%s\n", pHead->sender,pData);
-				log_manage_instant.LogAppend((LOG_LEVEL)pHead->level, pData);
+				log_manage_instant.LogAppend((LOG_LEVEL)log_head->level, log_data_content);
 			}
-			memset(sMessage.msg_text, 0x00, sizeof(sMessage.msg_text));
+			memset(message.msg_text, 0x00, sizeof(message.msg_text));
 		}
 	}
 	return ;

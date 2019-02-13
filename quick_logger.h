@@ -33,18 +33,18 @@ using namespace std;
 #define BCD2DEC(x)	(((x)&0x0F)+((x)>>4)*10)
 #define DEC2BCD(x)	((((x)/10)<<4)+(x)%10)
 
-typedef struct _LOG_HEADER
+typedef struct _ST_LOG_HEADER
 {
 	long			message_type;	/* 消息队列预留，必须有 */
 	unsigned int	sender;			/* 发送者的pid */
 	unsigned int	type;			/* 消息类型 */
 	unsigned int	level;			/* 消息等级 */
 	unsigned int	length;			/* DATA域的字节数 */
-}LogHeader ,*pLogHeader;
+}ST_LOGHEADER;
 
 typedef struct _ST_MESSAGE
 {
-	long msg_type;					/* 消息标识符 */
+	long msg_type;							/* 消息标识符 */
 	char msg_text[10240 - sizeof(long)];	/* 消息内容 */
 }ST_MESSAGE;
 
@@ -58,17 +58,17 @@ public:
 	unsigned int WriteCurrentLogSn(LOG_LEVEL log_level, unsigned int log_sn);
 
 public:
-	list<string> logs_pool_;				//日志缓存池
-	pthread_mutex_t logs_pool_lock_;		//日志缓存的锁
-	unsigned int logs_pool_total_len;		//日志缓存池中字节总长度
+	list<string> m_logs_pool;				//日志缓存池
+	pthread_mutex_t m_logs_pool_lock;		//日志缓存的锁
+	unsigned int m_logs_pool_total_len;		//日志缓存池中字节总长度
 
-	unsigned int logs_current_normal_sn_;	//当前普通日志sn（序号）
-	unsigned int logs_current_error_sn_;	//当前错误日志sn（序号）
-	unsigned int logs_normal_written_byte_;	//当前普通日志写入文件字节偏移
-	unsigned int logs_error_written_byte_;	//当前错误日志写入文件字节偏移
+	unsigned int m_logs_current_normal_sn;	//当前普通日志sn（序号）
+	unsigned int m_logs_current_error_sn;	//当前错误日志sn（序号）
+	unsigned int m_logs_normal_written_byte;//当前普通日志写入文件字节偏移
+	unsigned int m_logs_error_written_byte;	//当前错误日志写入文件字节偏移
 
-	bool logs_sync_flag_;					//log立即同步标志
-	bool logs_zipped_flag_;					//log被压缩标志，0未压缩 1 被压缩  
+	bool m_logs_sync_flag;					//log立即同步标志
+	bool m_logs_zipped_flag;				//log被压缩标志，0未压缩 1 被压缩  
 
 	int LogAppend(LOG_LEVEL log_level, const char* send_buff);
 	int LogCompress(LOG_LEVEL log_level, unsigned int sn);
@@ -81,7 +81,7 @@ private:
 	LogManager(const LogManager&);
 	LogManager& operator= (const LogManager&);
 private:
-	static LogManager * log_manage_instance_;
+	static LogManager * m_log_manage_instance;
 };
 
 
